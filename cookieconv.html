@@ -16,11 +16,18 @@
     <div id="output"></div>
 
     <script>
+        function extractDomain(curlCommand) {
+            const urlMatch = curlCommand.match(/curl '(?:https?:\/\/)?(?:www\.)?([^/]+)/)
+            if (!urlMatch) return null;
+            return '.' + urlMatch[1];
+        }
+
         function convertCookies() {
             const input = document.getElementById('curlInput').value;
+            const domain = extractDomain(input);
             const cookieMatch = input.match(/-H 'cookie: ([^']+)'/);
             
-            if (!cookieMatch) {
+            if (!cookieMatch || !domain) {
                 alert('No cookies found in the cURL command');
                 return;
             }
@@ -30,7 +37,7 @@
 
             cookies.forEach(cookie => {
                 const [name, value] = cookie.split('=');
-                output += `.youtube.com\tTRUE\t/\tTRUE\t2147483647\t${name}\t${value}\n`;
+                output += `${domain}\tTRUE\t/\tTRUE\t2147483647\t${name}\t${value}\n`;
             });
 
             const blob = new Blob([output], { type: 'text/plain' });
@@ -41,7 +48,6 @@
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            URL.revokeObjectURL(url);
         }
     </script>
 </body>
