@@ -7,6 +7,7 @@
         textarea { width: 100%; height: 200px; margin: 1rem 0; padding: 0.5rem; font-family: monospace; }
         button { background: #0066cc; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
         button:hover { background: #0052a3; }
+        #output { margin-top: 1rem; }
     </style>
 </head>
 <body>
@@ -14,32 +15,57 @@
     <textarea id="curlInput" placeholder="Paste your cURL command here..."></textarea>
     <button onclick="convertCookies()">Convert & Download</button>
     <div id="output"></div>
-
     <script>
         function extractDomain(curlCommand) {
-            const urlMatch = curlCommand.match(/curl '(?:https?:\/\/)?(?:www\.)?([^/]+)/)
+            const urlMatch = curlCommand.match(/curl '(?:https?:\/\/)?(?:www\.)?([^/]+)/);
             if (!urlMatch) return null;
             return '.' + urlMatch[1];
         }
-
+        
         function convertCookies() {
             const input = document.getElementById('curlInput').value;
             const domain = extractDomain(input);
-            const cookieMatch = input.match(/-H 'cookie: ([^']+)'/);
             
-            if (!cookieMatch || !domain) {
+            if (!domain) {
+                alert('Could not extract domain from the cURL command');
+                return;
+            }
+            
+            // Check for cookies in -H 'cookie: ...' format
+            let cookieMatch = input.match(/-H 'cookie: ([^']+)'/i);
+            
+            // If not found, check for cookies in -b '...' format
+            if (!cookieMatch) {
+                cookieMatch = input.match(/-b '([^']+)'/);
+            }
+            
+            if (!cookieMatch) {
                 alert('No cookies found in the cURL command');
                 return;
             }
-
+            
             const cookies = cookieMatch[1].split('; ');
             let output = '# Netscape HTTP Cookie File\n# https://curl.haxx.se/rfc/cookie_spec.html\n# This is a generated file!  Do not edit.\n\n';
-
+            
             cookies.forEach(cookie => {
-                const [name, value] = cookie.split('=');
-                output += `${domain}\tTRUE\t/\tTRUE\t2147483647\t${name}\t${value}\n`;
+                // Handle potential edge cases like equals signs in cookie values
+                const firstEqualIndex = cookie.indexOf('=');
+                if (firstEqualIndex === -1) return; // Skip invalid cookies
+                
+                const name = cookie.substring(0, firstEqualIndex);
+                const value = cookie.substring(firstEqualIndex + 1);
+                
+                if (name && value) {
+                    output += `${domain}\tTRUE\t/\tTRUE\t2147483647\t${name}\t${value}\n`;
+                }
             });
-
+            
+            // Show a preview in the output div
+            document.getElementById('output').innerHTML = '<h3>Preview:</h3><pre>' + 
+                output.slice(0, 500) + (output.length > 500 ? '...' : '') + 
+                '</pre><p>Total cookies: ' + cookies.length + '</p>';
+            
+            // Create and trigger download
             const blob = new Blob([output], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -48,6 +74,7 @@
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
     </script>
 </body>
